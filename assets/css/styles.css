@@ -1,0 +1,730 @@
+/* ─── RESET ET BASE ─── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  height: 100%;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: 'Roboto', sans-serif;
+  background: #f0f2f5;
+  margin-bottom: 100px;
+  padding-top: 110px;    /* réserve la hauteur de la navbar */
+  color: #333;
+}
+
+/* ─── CONTENEUR ─── */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ─── NAVBAR ─── */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.logo {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  text-decoration: none;
+}
+.top-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.top-nav a {
+  color: #2c3e50;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: color 0.2s;
+}
+.top-nav a:hover {
+  color: #69b0ca;
+}
+
+/* --- bouton ⋮ et nom user --- */
+.user-button {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #2c3e50;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.user-button .dots {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* dropdown activé par classe .open */
+.user-menu .dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  background: #fff;
+  border: 1px solid rgba(229,231,235,1);
+  border-radius: 20px 20px 20px 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  width: 200px;
+  z-index: 1001;
+}
+.user-menu .dropdown.open,
+.user-menu .dropdown.open {
+  opacity: 1;
+  visibility: visible;
+}
+.user-menu .dropdown a {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: #374151;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.user-menu .dropdown a:hover {
+  background: #f3f4f6;
+}
+
+/* ─── FILTRES: BANNIÈRE PRINCIPALE ─── */
+.filter-zone {
+  /* PERSONNALISABLE: Ajustez la largeur maximale de la zone de filtres */
+  max-width: 1400px; /* Augmenté pour rendre la bannière plus longue (était 1200px) */
+  margin: 20px auto 20px;
+  position: relative;
+}
+
+.filter-banner {
+  display: flex;
+  justify-content: space-around;
+  /* PERSONNALISABLE: Ajustez l'espace entre les filtres */
+  gap: 10rem; /* Augmenté (était 2rem) pour plus d'espace entre les filtres */
+  background: #fff;
+  border-radius: 40px 40px 40px 40px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  /* PERSONNALISABLE: Ajustez la hauteur de la bannière (padding vertical) */
+  padding: 30px 60px; /* Épaisseur/hauteur inchangée comme demandé */
+  position: relative;
+  z-index: 101;
+}
+
+.filter-item {
+  position: relative;
+  padding: 15px 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.2s;
+  /* PERSONNALISABLE: Ajustez la taille de la police */
+  font-size: 1rem;
+}
+.filter-item:hover {
+  color: #353532;
+}
+.filter-item.active-filter {
+  color: #353532;
+  font-weight: 600;
+}
+.filter-item.active-filter::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  width: 80%;
+  height: 2px; /* Épaisseur par défaut */
+  background-color: #353532;
+}
+
+/* ─── PANNEAU DE FILTRES: SOUS-BANNIÈRE ─── */
+.filter-panel {
+  display: flex;
+  background: #fff;
+  border-radius: 30px 30px 30px 30px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  /* PERSONNALISABLE: Hauteur maximale initiale (fermé) */
+  max-height: 0; /* Modifié pour être complètement fermé par défaut */
+  max-width: 835px;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  z-index: 100;
+  padding: 0;
+  position: relative;
+}
+
+.filter-panel.open {
+  /* PERSONNALISABLE: Hauteur maximale lorsque ouvert */
+  max-height: 500px; /* Augmenté (était 400px) pour un panneau plus grand */
+  /* PERSONNALISABLE: Ajustez l'espacement interne du panneau */
+  padding: 20px 20px; /* Augmenté (était 30px) pour plus d'espace à l'intérieur */
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+}
+
+/* Correction du problème où les options restent visibles */
+.panel-column {
+  flex: 1;
+  display: none; /* Masqué par défaut */
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 15px;
+  position: relative;
+  width: 100%;
+}
+
+/* Le séparateur entre colonnes */
+.panel-column:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 10%;
+  height: 80%;
+  width: 1px;
+  background-color: #e5e7eb;
+}
+
+/* ─── CONTENEUR DE PILLS ─── */
+.pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  /* PERSONNALISABLE: Ajustez l'espace entre les pills */
+  gap: 10px; /* Légèrement augmenté (était 8px) */
+}
+
+.pill {
+  background: #f3f4f6;
+  border: 1px solid transparent;
+  /* PERSONNALISABLE: Ajustez la forme des pills */
+  border-radius: 20px;
+  /* PERSONNALISABLE: Ajustez la taille des pills */
+  padding: 8px 15px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  color: #333;
+  white-space: nowrap;
+}
+.pill:hover {
+  background: #e5e7eb;
+  border-color: #385271;
+  color: #385271;
+}
+.pill.active {
+  background-color: #385271;
+  color: white;
+  font-weight: 500;
+}
+
+/* ─── BARRE DE RECHERCHE ─── */
+.search-container {
+  max-width: 600px;
+  margin: 0px auto 30px;
+  text-align: center;
+}
+.search-input {
+  width: 100%;
+  padding: 12px 200px;
+  border: 1px solid #ccc;
+  border-radius: 30px;
+  font-size: 1rem;
+}
+
+/* ─── GRILLE DE VOITURES (TAILLE FIXE) ─── */
+main {
+  flex: 1;
+}
+.cars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  display: flex;        /* passe en flexbox */
+  flex-wrap: wrap;      /* autorise le retour à la ligne */
+  justify-content: flex-start; /* ou center si vous préférez centrer les blocs */
+  gap: 12px;            /* espacement constant entre chaque carte */
+  padding: 0 20px 200px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.car-card {
+  position: relative;
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+  cursor: pointer;
+  /* TAILLE FIXE - dimensions constantes pour toutes les cartes */
+  width: 280px; /* Largeur fixe */
+  height: 350px; /* Hauteur fixe */
+  display: flex;
+  flex-direction: column;
+}
+.car-card:hover {
+  transform: translateY(-5px);
+}
+.car-card img {
+  width: 100%;
+  height: 200px; /* Hauteur fixe pour l'image */
+  object-fit: cover;
+  flex-shrink: 0; /* Empêche l'image de rétrécir */
+}
+.car-card-content {
+  padding: 15px;
+  flex: 1; /* Prend l'espace restant */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Distribue l'espace uniformément */
+}
+.car-card-content h3 {
+  margin-bottom: 10px;
+  font-size: 1.1rem; /* Taille de police cohérente */
+  line-height: 1.3;
+  /* Limite le texte à 2 lignes maximum */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.car-card-content p {
+  color: #e67e22;
+  font-weight: 600;
+  font-size: 1rem; /* Taille de police cohérente */
+  margin-top: auto; /* Pousse le prix vers le bas */
+}
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #3498db;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.85rem; /* Taille cohérente pour le badge */
+  max-width: 80px; /* Largeur maximale pour éviter le débordement */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── FAVORIS ─── */
+.favorite-btn {
+  background: none;
+  border: none;
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  cursor: pointer;
+  z-index: 10; /* Assure que le bouton reste cliquable */
+}
+.favorite-btn .icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.icon.fav {
+  color: #e67e22;
+}
+.icon.no-fav {
+  color: #ccc;
+}
+
+/* ─── AUCUN RÉSULTAT (CENTRÉ) ─── */
+#no-results {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background: rgba(255,255,255,0.9);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  z-index: 50;
+}
+#no-results p {
+  color: #e74c3c;
+  font-size: 1.1rem;
+}
+
+/* ─── FOOTER ─── */
+.site-footer {
+  background: #000;
+  color: #fff;
+  margin-top:100px;
+  padding-top: 3rem;     /* zone noire au-dessus du contenu */
+  padding-bottom: 3rem;  /* zone noire en dessous du contenu */
+  font-size: 0.9rem;
+}
+.site-footer .footer-top {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2.5rem;           /* espace entre colonnes */
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+}
+.site-footer h4 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.site-footer p,
+.site-footer ul {
+  margin: 0;
+  padding: 0;
+}
+.site-footer ul {
+  list-style: disc inside;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+.site-footer ul li {
+  margin-bottom: 0.75rem;
+}
+/* Marque en une colonne */
+.site-footer .footer-top .brands {
+  columns: 1;
+  column-gap: 0;
+}
+/* Responsive */
+@media (max-width: 1024px) {
+  .site-footer .footer-top {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .site-footer .footer-top {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .site-footer .footer-top .brands {
+    columns: 1;
+  }
+}
+/* Séparateur et bas de page */
+.site-footer .footer-bottom {
+  --tw-border-opacity: 1;
+  border-top: 1px solid rgba(40,40,40,var(--tw-border-opacity));
+  text-align: center;
+  padding-top: 1rem;
+}
+.site-footer .footer-bottom p {
+  color: #777;
+  margin: 0;
+}
+
+/* ─── RÉPONSIVE GLOBAL ─── */
+@media (max-width: 768px) {
+  .header-top {
+    flex-direction: column;
+    text-align: center;
+  }
+  .top-nav {
+    margin-top: 10px;
+  }
+  .site-footer .footer-bottom {
+    flex-direction: column;
+  }
+  .site-footer .footer-bottom p {
+    margin-bottom: 10px;
+  }
+  .filter-panel {
+    flex-direction: column;
+  }
+  .panel-column:not(:last-child)::after {
+    display: none;
+  }
+  .panel-column:not(:last-child) {
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+  }
+  .filter-panel.open {
+    max-height: 100%; /* Augmenté pour le responsive */
+  }
+  .pills-container {
+    flex-wrap: wrap;
+  }
+  .filter-banner {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .filter-item {
+    flex: 0 0 45%;
+    text-align: center;
+  }
+}
+
+/* ─── RESPONSIVE POUR LA GRILLE ─── */
+@media (max-width: 1200px) {
+  .cars-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    justify-content: center; /* Centre les cartes */
+  }
+}
+
+@media (max-width: 900px) {
+  .cars-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  .car-card {
+    width: 250px; /* Légèrement plus petit sur tablette */
+    height: 330px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cars-grid {
+    grid-template-columns: 1fr; /* Une seule colonne sur mobile */
+    justify-items: center;
+    padding: 0 10px 200px;
+  }
+  .car-card {
+    width: 100%;
+    max-width: 320px; /* Largeur maximale sur mobile */
+    height: 350px;
+  }
+}
+
+/* ─── FORMULAIRES (dashboard) ─── */
+.form-container {
+  max-width: 400px;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  background: #1e1e1e;
+  color: #fff;
+  border-radius: 8px;
+}
+.form-box {
+  display: flex;
+  flex-direction: column;
+}
+.form-box label {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+.form-box input,
+.form-box select,
+.form-box textarea {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #2b2b2b;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+}
+.form-box .btn {
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.form-box .btn:hover {
+  background: #0056b3;
+}
+
+/* ─── STYLES DASHBOARD ─── */
+.dashboard-section {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.dashboard-section h2 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* ─── BOUTONS DASHBOARD ─── */
+.btn-gray, .btn-gray-light {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #e5e7eb;
+  color: #374151;
+  text-decoration: none;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-gray:hover, .btn-gray-light:hover {
+  background: #d1d5db;
+  color: #1f2937;
+}
+
+.btn-blue, .btn-blue-light {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #60a5fa;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-blue:hover, .btn-blue-light:hover {
+  background: #3b82f6;
+}
+
+/* ─── TABLE DASHBOARD ─── */
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.dashboard-table thead tr {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.dashboard-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+}
+
+.dashboard-table th.center {
+  text-align: center;
+}
+
+.dashboard-table tbody tr {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.dashboard-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.dashboard-table td {
+  padding: 0.75rem;
+  color: #495057;
+}
+
+.dashboard-table td.center {
+  text-align: center;
+}
+
+/* ─── STOCK DISPLAY ─── */
+.stock-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stock-info h3 {
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+  font-size: 1.2rem;
+}
+
+.stock-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0.5rem 0;
+}
+
+/* ─── ALERTS ─── */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.alert.success {
+  background: #d1edcc;
+  color: #165c26;
+  border: 1px solid #4ade80;
+}
+
+.alert.error {
+  background: #fecaca;
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
+/* ─── EXPORT SECTION ─── */
+.export-section {
+  text-align: center;
+}
+
+.export-section h2 {
+  margin-bottom: 1.5rem;
+}
+
+/* ─── IMPORT FORM ─── */
+.import-form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.import-form input[type="file"] {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  .import-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .import-form button {
+    width: 100%;
+  }
+
+  .stock-display {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .dashboard-table {
+    font-size: 0.9rem;
+  }
+
+  .dashboard-table th,
+  .dashboard-table td {
+    padding: 0.5rem;
+  }
+}
