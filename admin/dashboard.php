@@ -393,7 +393,10 @@ foreach ($users as $u) {
                     border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.08);margin-bottom:2rem;text-align:center;">
             <h2 style="margin-bottom:1rem;">Exporter les données</h2>
             <a href="?download_log=1" class="btn-blue" style="padding:0.5rem 1.5rem;font-size:1rem;">Exporter JSON</a>
+                    <a href="../api.php" class="btn-blue" style="padding:0.5rem 1.5rem; font-size:1rem;">Voir l’API
+                    </a>
         </div>
+</section>
     </section>
 
     <!-- GESTION DES UTILISATEURS -->
@@ -483,6 +486,8 @@ foreach ($users as $u) {
     </section>
 
 </main>
+
+
 <script>
     const ctx = document.getElementById('revChart').getContext('2d');
     new Chart(ctx, {
@@ -494,3 +499,4 @@ foreach ($users as $u) {
 </script>
 </body>
 </html>
+<?php

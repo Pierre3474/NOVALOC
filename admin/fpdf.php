@@ -15,19 +15,24 @@ if (!class_exists('FPDF')) {
  */
 class NOVALOC_PDF extends FPDF
 {
-    function euro() { return chr(128); }
+    /**
+     * Retourne le symbole Euro
+     */
+    function euro() {
+        return chr(128);
+    }
 
+    /**
+     * En-tête avec logo et informations société
+     */
     function Header()
     {
-        // Affiche le logo en haut à droite
         $logoPath = __DIR__ . '/../pdf/logo.png';
         if (file_exists($logoPath)) {
-            // largeur 50mm, positionné à droite (x=150)
             $this->Image($logoPath, 10, 10, 50);
         }
         $this->SetFont('Arial', '', 10);
-        // Décale les infos société sous le logo
-        $this->SetXY(120, 36); // 36 = 10 (y du logo) + 26 (hauteur estimée du logo)
+        $this->SetXY(120, 36);
         $this->Cell(80, 5, utf8_decode('NOVALOC'), 0, 1, 'R');
         $this->SetX(120);
         $this->Cell(80, 5, utf8_decode('31 rue des locations'), 0, 1, 'R');
@@ -41,14 +46,20 @@ class NOVALOC_PDF extends FPDF
 
 /**
  * Génère une facture PDF pour une réservation
+ * Le fichier est nommé : MODELEVOITURE_DATEDEBUTLOCATION_DATEFINLOCATION_ID.pdf
+ *
+ * @param int $reservationId
+ * @param PDO $pdo
+ * @return string Nom du fichier généré
+ * @throws Exception
  */
 function generateInvoice(int $reservationId, PDO $pdo): string
 {
+    // Récupération des données
     $stmt = $pdo->prepare(
-        "SELECT r.*, u.username, u.email, c.marque, c.modele, c.prix AS car_prix
+        "SELECT r.*, u.username, u.email
          FROM reservations r
          JOIN users u ON r.user_id = u.id
-         JOIN cars c ON r.car_id = c.id
          WHERE r.id = ?"
     );
     $stmt->execute([$reservationId]);
@@ -57,28 +68,38 @@ function generateInvoice(int $reservationId, PDO $pdo): string
         throw new Exception('Réservation introuvable.');
     }
 
-    // Abréviation du modèle (enlève "Autobiography" et tout après)
-    $modeleBrut = trim($res['modele']);
-    $modeleAbrege = preg_replace('/\s*Autobiography.*/i', '', $modeleBrut);
-    $modeleAbrege = trim($modeleAbrege);
-    $modeleFichier = preg_replace('/[^a-zA-Z0-9]/', '', $modeleAbrege);
+    // Modèle de voiture tel que stocké
+    $modeleRaw   = trim($res['car_modele']);
+    $modeleClean = preg_replace('/[^A-Za-z0-9]/', '', $modeleRaw);
 
-    $date  = date('d/m/Y');
+    // Dates de location au format YYYYMMDD
+    $dateDebutLoc = date('Ymd', strtotime($res['start_date']));
+    $dateFinLoc   = date('Ymd', strtotime($res['end_date']));
+
+    // Nom du fichier final
+    $filename = sprintf(
+        "%s_%s_%s_%d.pdf",
+        $modeleClean,
+        $dateDebutLoc,
+        $dateFinLoc,
+        $reservationId
+    );
+
+    // Dossier de destination
     $dir = __DIR__ . '/../pdf/files';
-    if (!is_dir($dir)) {
-        if (!mkdir($dir, 0755, true)) {
-            throw new Exception("Impossible de créer le dossier $dir");
-        }
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        throw new Exception("Impossible de créer le dossier $dir");
     }
-    $file = $modeleFichier . '.pdf';
-    $path = "{$dir}/{$file}";
+    $path = "$dir/$filename";
 
+    // Calcul des montants
     $ttc = (float)$res['payment_amount'];
     $ht  = round($ttc / 1.2, 2);
     $tva = round($ttc - $ht, 2);
 
+    // Création du PDF
     $pdf = new NOVALOC_PDF();
-    $euro = chr(128);
+    $euro = $pdf->euro();
     $pdf->AddPage();
 
     // Titre
@@ -86,13 +107,13 @@ function generateInvoice(int $reservationId, PDO $pdo): string
     $pdf->Cell(0, 10, utf8_decode('FACTURE'), 0, 1, 'C');
     $pdf->Ln(2);
 
-    // Numéro & date (on met le modèle abrégé)
+    // En-têtes de données
     $pdf->SetFont('Arial', '', 12);
-    $pdf->Cell(60, 8, utf8_decode($modeleAbrege), 1, 0, 'C');
-    $pdf->Cell(40, 8, utf8_decode($date), 1, 1, 'C');
+    $pdf->Cell(60, 8, utf8_decode($modeleRaw), 1, 0, 'C');
+    $pdf->Cell(40, 8, utf8_decode(date('d/m/Y')), 1, 1, 'C');
     $pdf->Ln(4);
 
-    // Client / À L'ATTENTION DE
+    // Infos client et société
     $pdf->SetFont('Arial', 'B', 12);
     $pdf->Cell(95, 6, utf8_decode('CLIENT'), 0, 0);
     $pdf->Cell(95, 6, utf8_decode("À L'ATTENTION DE"), 0, 1);
@@ -111,12 +132,7 @@ function generateInvoice(int $reservationId, PDO $pdo): string
     $pdf->Line(10, $y, 200, $y);
     $pdf->Ln(8);
 
-    // Prix par mois / total / HT / TVA
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(60, 8, utf8_decode('Prix par mois :'), 0, 0);
-    $pdf->SetFont('Arial', '', 12);
-    $pdf->Cell(0, 8, number_format($res['car_prix'], 2, ',', ' ') . " $euro", 0, 1);
-
+    // Détails financiers
     $pdf->SetFont('Arial', 'B', 12);
     $pdf->Cell(60, 8, utf8_decode('Prix total TTC :'), 0, 0);
     $pdf->SetFont('Arial', '', 12);
@@ -133,7 +149,7 @@ function generateInvoice(int $reservationId, PDO $pdo): string
     $pdf->Cell(0, 8, number_format($tva, 2, ',', ' ') . " $euro", 0, 1);
     $pdf->Ln(6);
 
-    // Tableau de la prestation
+    // Tableau prestation
     $pdf->SetFont('Arial', 'B', 11);
     $pdf->SetFillColor(200);
     $pdf->Cell(90, 8, utf8_decode('DESCRIPTION'), 1, 0, 'C', true);
@@ -142,17 +158,19 @@ function generateInvoice(int $reservationId, PDO $pdo): string
     $pdf->Cell(30, 8, utf8_decode('TOTAL HT'), 1, 1, 'C', true);
 
     $pdf->SetFont('Arial', '', 10);
-    $desc = utf8_decode($res['marque'].' '.$modeleAbrege.', '
-          . date('d/m/Y', strtotime($res['start_date']))
-          . ' - '
-          . date('d/m/Y', strtotime($res['end_date'])));
+    $desc = utf8_decode(sprintf(
+        "%s, %s - %s",
+        $modeleRaw,
+        date('d/m/Y', strtotime($res['start_date'])),
+        date('d/m/Y', strtotime($res['end_date']))
+    ));
     $pdf->Cell(90, 6, $desc, 1);
     $pdf->Cell(30, 6, number_format($ht, 2, ',', ' ') . " $euro", 1, 0, 'R');
     $pdf->Cell(20, 6, '1', 1, 0, 'C');
     $pdf->Cell(30, 6, number_format($ht, 2, ',', ' ') . " $euro", 1, 1, 'R');
     $pdf->Ln(4);
 
-    // Totaux
+    // Totaux finaux
     $pdf->Cell(140, 6, utf8_decode('Sous-total HT :'), 0, 0, 'R');
     $pdf->Cell(30, 6, number_format($ht, 2, ',', ' ') . " $euro", 0, 1, 'R');
     $pdf->Cell(140, 6, utf8_decode('TVA (20%) :'), 0, 0, 'R');
@@ -166,7 +184,7 @@ function generateInvoice(int $reservationId, PDO $pdo): string
     $pdf->SetFont('Arial', 'I', 9);
     $pdf->Cell(0, 5, utf8_decode('TVA non applicable, art. 293B du CGI'), 0, 1, 'L');
 
-    // Bas de page - Informations de paiement
+    // Informations de paiement
     $pdf->Ln(8);
     $pdf->SetFont('Arial', 'B', 10);
     $pdf->Cell(0, 6, utf8_decode('INFORMATIONS DE PAIEMENT'), 0, 1, 'L');
@@ -179,5 +197,5 @@ function generateInvoice(int $reservationId, PDO $pdo): string
 
     // Enregistrement du PDF
     $pdf->Output('F', $path);
-    return $file;
+    return $filename;
 }
