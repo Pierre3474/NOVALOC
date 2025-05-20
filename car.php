@@ -4,15 +4,9 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
-// --------- 1) Vérifier les droits favoris ---------
-$isLogged = !empty($_SESSION['user']['id']);
-$userEmail = $isLogged ? ($_SESSION['user']['email'] ?? '') : '';
-$userRole  = $isLogged ? ($_SESSION['user']['role'] ?? '') : '';
-$canUseFavorites = $isLogged && $userRole === 'user' && preg_match('/@test\.com$/', $userEmail);
-
-// --------- 2) Toggle favoris (seulement pour users test.com) ---------
+// --------- 1) Toggle favoris ---------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite_car_id'])) {
-    if ($canUseFavorites) {
+    if (!empty($_SESSION['user']['id'])) {
         $userId = $_SESSION['user']['id'];
         $favCarId = (int)$_POST['favorite_car_id'];
         $check = $pdo->prepare("SELECT 1 FROM favorites WHERE user_id = ? AND car_id = ?");
@@ -27,8 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite_car_id'])) {
     exit;
 }
 
-// --------- 3) Ajout au panier (et blocage des doublons de période) ---------
+// --------- 2) Ajout au panier (et blocage des doublons de période) ---------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['car_id']) && !isset($_POST['favorite_car_id'])) {
+    // Si le user est admin/commercial, on ne fait rien !
     $role = $_SESSION['user']['role'] ?? '';
     if ($role === 'admin' || $role === 'commercial') {
         header('Location: car.php?id=' . $id);
@@ -40,9 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['car_id']) && !isset($
     $m = null;
     if ($start && $end) {
         $m = $start->diff($end)->y * 12 + $start->diff($end)->m;
+        // ---- Durée min 3 mois ----
         if ($m < 3) {
             header('Location: car.php?id=' . $id . '&error=duration'); exit;
         }
+        // Vérifie chevauchement réservation (modifie la requête selon ta table de réservations !)
         $overlapCheck = $pdo->prepare("
             SELECT COUNT(*) FROM reservations
             WHERE car_id = ?
@@ -87,20 +84,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['car_id']) && !isset($
     exit;
 }
 
-// --------- 4) Charger la fiche véhicule ---------
+// --------- 3) Charger la fiche véhicule ---------
 $car = $pdo->prepare('SELECT * FROM cars WHERE id = :id');
 $car->execute(['id' => $id]);
 $car = $car->fetch(PDO::FETCH_ASSOC);
 
-// --------- 5) Pré-favori ---------
+// --------- 4) Pré-favori ---------
 $isFavorite = false;
-if ($car && $canUseFavorites) {
+if ($car && !empty($_SESSION['user']['id'])) {
     $chk = $pdo->prepare("SELECT 1 FROM favorites WHERE user_id=? AND car_id=?");
     $chk->execute([$_SESSION['user']['id'], $id]);
     $isFavorite = (bool)$chk->fetchColumn();
 }
 
-// --------- 6) Galerie ---------
+// --------- 5) Galerie ---------
 $imgs = [];
 if ($car) {
     if (!empty($car['images'])) {
@@ -112,7 +109,7 @@ if ($car) {
 }
 $galleryImages = array_slice($imgs, 0, 3);
 
-// --------- 7) Options ---------
+// --------- 6) Options ---------
 $depositOptions = [500, 1000, 2000];
 $kmOptions = [1000, 2000, 3000];
 $others = [];
@@ -124,7 +121,7 @@ if ($car) {
     $others = $sth->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// --------- 8) Récupérer les périodes déjà réservées pour la voiture ---------
+// --------- 7) Récupérer les périodes déjà réservées pour la voiture ---------
 $reservedRanges = [];
 $reservedDates = [];
 if ($car) {
@@ -132,14 +129,17 @@ if ($car) {
     $res->execute([$id]);
     foreach ($res->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $reservedRanges[] = [$r['start_date'], $r['end_date']];
+        
+        // Générer toutes les dates individuelles dans cette plage
         $startDate = new DateTime($r['start_date']);
         $endDate = new DateTime($r['end_date']);
         $interval = new DateInterval('P1D');
         $dateRange = new DatePeriod($startDate, $interval, $endDate);
-
+        
         foreach ($dateRange as $date) {
             $reservedDates[] = $date->format('Y-m-d');
         }
+        // Ajouter également la date de fin
         $reservedDates[] = $endDate->format('Y-m-d');
     }
 }
@@ -155,18 +155,36 @@ $role = $_SESSION['user']['role'] ?? '';
     <link rel="stylesheet" href="assets/css/styles.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
-        .flatpickr-calendar { font-size: 1.15rem !important; }
-        .flatpickr-calendar.open { z-index: 99 !important; box-shadow: 0 0 25px 2px #2563eb33; }
-        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange { background: #2563eb; color: #fff; }
-        .flatpickr-input { cursor: pointer; font-size: 1.1rem; }
-        .flatpickr-day.reserved { background-color: #fecaca; color: #b91c1c; text-decoration: line-through; cursor: not-allowed; }
-        .flatpickr-day.reserved:hover { background-color: #fecaca !important; color: #b91c1c !important; }
-        .flatpickr-day.disabled.reserved { background-color: #fecaca !important; color: #b91c1c !important; }
-        .car-image-container { width: 100%; height: 400px; overflow: visible; position: relative; }
-        #mainImage { width: 100%; height: 100%; object-fit: cover; object-position: center; }
-        .thumbnail-container { width: 80px; height: 60px; overflow: hidden; flex-shrink: 0; }
-        .thumbnail { width: 100%; height: 100%; object-fit: cover; object-position: center; }
-        .favorite-button { position: absolute; top: 16px; right: 16px; z-index: 50; }
+      .flatpickr-calendar {
+        font-size: 1.15rem !important;
+      }
+      .flatpickr-calendar.open {
+        z-index: 99 !important;
+        box-shadow: 0 0 25px 2px #2563eb33;
+      }
+      .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+        background: #2563eb;
+        color: #fff;
+      }
+      .flatpickr-input {
+        cursor: pointer;
+        font-size: 1.1rem;
+      }
+      /* Styles pour les dates réservées */
+      .flatpickr-day.reserved {
+        background-color: #fecaca; /* Rouge clair */
+        color: #b91c1c; /* Rouge foncé */
+        text-decoration: line-through;
+        cursor: not-allowed;
+      }
+      .flatpickr-day.reserved:hover {
+        background-color: #fecaca !important;
+        color: #b91c1c !important;
+      }
+      .flatpickr-day.disabled.reserved {
+        background-color: #fecaca !important;
+        color: #b91c1c !important;
+      }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -199,29 +217,22 @@ $role = $_SESSION['user']['role'] ?? '';
         <div class="flex flex-col lg:flex-row gap-8">
             <!-- Galerie + favoris -->
             <div class="w-full lg:w-2/3 relative">
-                <div class="car-image-container">
-                    <img id="mainImage"
-                         src="<?= htmlspecialchars($galleryImages[0] ?? '', ENT_QUOTES) ?>"
-                         class="w-full rounded-lg shadow-lg object-cover">
-
-                    <?php if ($canUseFavorites): ?>
-                        <!-- Bouton favoris déplacé à l'intérieur du conteneur d'image mais avec une visibilité garantie -->
-                        <form method="post" action="car.php?id=<?= $id ?>" class="favorite-button">
-                            <input type="hidden" name="favorite_car_id" value="<?= $id ?>">
-                            <button type="submit" class="text-3xl text-yellow-500 focus:outline-none" style="text-shadow: 0 0 3px rgba(0,0,0,0.5);">
-                                <?= $isFavorite ? '★' : '☆' ?>
-                            </button>
-                        </form>
-                    <?php endif; ?>
-                </div>
-
+                <img id="mainImage"
+                     src="<?= htmlspecialchars($galleryImages[0] ?? '', ENT_QUOTES) ?>"
+                     class="w-full rounded-lg shadow-lg object-cover">
+                <?php if (!empty($_SESSION['user']['id'])): ?>
+                    <form method="post" action="car.php?id=<?= $id ?>" class="absolute top-4 right-4">
+                        <input type="hidden" name="favorite_car_id" value="<?= $id ?>">
+                        <button type="submit" class="text-3xl text-yellow-500 focus:outline-none">
+                            <?= $isFavorite ? '★' : '☆' ?>
+                        </button>
+                    </form>
+                <?php endif; ?>
                 <div class="flex gap-2 mt-4">
                     <?php foreach($galleryImages as $i => $img): ?>
-                        <div class="thumbnail-container">
-                            <img src="<?= htmlspecialchars($img, ENT_QUOTES) ?>"
-                                 data-index="<?= $i ?>"
-                                 class="thumbnail object-cover rounded cursor-pointer">
-                        </div>
+                        <img src="<?= htmlspecialchars($img, ENT_QUOTES) ?>"
+                             data-index="<?= $i ?>"
+                             class="thumbnail w-20 h-12 object-cover rounded cursor-pointer">
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -234,7 +245,7 @@ $role = $_SESSION['user']['role'] ?? '';
                 <p id="priceDisplay" class="text-3xl font-bold mb-4">
                     <?= number_format($car['prix'], 2, ',', ' ') ?> €<span class="text-base font-normal">/mois</span>
                 </p>
-                <form id="addToCartForm" method="post" action="car.php?id=<?= $id ?>" class="space-y-4 flex-grow">
+                <form method="post" action="car.php?id=<?= $id ?>" class="space-y-4 flex-grow">
                     <!-- dates -->
                     <div>
                         <label for="start_date" class="block text-sm font-medium">Début</label>
@@ -267,11 +278,10 @@ $role = $_SESSION['user']['role'] ?? '';
                         </select>
                     </div>
                     <?php if ($role !== 'admin' && $role !== 'commercial'): ?>
-                        <button type="submit"
-                                class="w-full py-3 bg-blue-600 text-white rounded-lg"
-                                id="addToCartBtn">
-                            Ajouter au panier
-                        </button>
+                    <button type="submit"
+                            class="w-full py-3 bg-blue-600 text-white rounded-lg">
+                        Ajouter au panier
+                    </button>
                     <?php endif; ?>
                 </form>
 
@@ -290,10 +300,8 @@ $role = $_SESSION['user']['role'] ?? '';
                 <?php foreach($others as $o): ?>
                     <a href="car.php?id=<?= $o['id'] ?>"
                        class="block bg-white p-4 rounded-lg shadow hover:shadow-lg">
-                        <div class="vehicle-image-container h-32 overflow-hidden rounded">
-                            <img src="<?= htmlspecialchars($o['image'], ENT_QUOTES) ?>"
-                                 class="w-full h-full object-cover">
-                        </div>
+                        <img src="<?= htmlspecialchars($o['image'], ENT_QUOTES) ?>"
+                             class="w-full h-32 object-cover rounded">
                         <h3 class="mt-2 font-medium"><?= htmlspecialchars($o['title'], ENT_QUOTES) ?></h3>
                         <p class="text-gray-500">
                             <?= number_format($o['price'], 2, ',', ' ') ?> €/mois
@@ -308,104 +316,97 @@ $role = $_SESSION['user']['role'] ?? '';
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function(){
-        const basePrice     = <?= $car ? (float)$car['prix'] : 0 ?>;
-        const MIN_KM        = <?= $kmOptions[0] ?>;
-        const depositSelect = document.getElementById('deposit');
-        const kmSelect      = document.getElementById('km');
-        const priceDisplay  = document.getElementById('priceDisplay');
-        const startInput    = document.getElementById('start_date');
-        const endInput      = document.getElementById('end_date');
-        const minMonths     = 3;
+document.addEventListener('DOMContentLoaded', function(){
+    const basePrice     = <?= $car ? (float)$car['prix'] : 0 ?>;
+    const MIN_KM        = <?= $kmOptions[0] ?>;
+    const depositSelect = document.getElementById('deposit');
+    const kmSelect      = document.getElementById('km');
+    const priceDisplay  = document.getElementById('priceDisplay');
+    const startInput    = document.getElementById('start_date');
+    const endInput      = document.getElementById('end_date');
+    const minMonths     = 3;
 
-        function monthDiff(d1, d2) {
-            return (d2.getFullYear()-d1.getFullYear())*12
-                + (d2.getMonth()-d1.getMonth())
-                + (d2.getDate()>=d1.getDate()?0:-1);
+    // Fonctions utiles
+    function monthDiff(d1, d2) {
+        return (d2.getFullYear()-d1.getFullYear())*12
+            + (d2.getMonth()-d1.getMonth())
+            + (d2.getDate()>=d1.getDate()?0:-1);
+    }
+
+    function updatePrice(){
+        let dur = monthDiff(new Date(startInput.value), new Date(endInput.value));
+        if (isNaN(dur)||dur<minMonths) dur=minMonths;
+        const dep = depositSelect ? parseInt(depositSelect.value,10) : 0;
+        const km  = parseInt(kmSelect.value,10);
+        let newPrice = basePrice
+                     + (km - MIN_KM)*0.02
+                     - (dur - minMonths)*2
+                     - dep*0.005;
+        if (!isFinite(newPrice)||newPrice<0) newPrice=basePrice;
+        priceDisplay.innerHTML = newPrice.toFixed(2).replace('.',',')
+                                + ' €<span class="text-base font-normal">/mois</span>';
+    }
+
+    [depositSelect, kmSelect, startInput, endInput].forEach(el => {
+        if (el) el.addEventListener('change', updatePrice);
+    });
+
+    // Dates réservées
+    const reservedRanges = <?= json_encode($reservedRanges) ?>;
+    const reservedDates = <?= json_encode($reservedDates) ?>;
+
+    // Fonction pour marquer les jours réservés
+    function markReservedDays(date) {
+        const dateString = date.toISOString().split('T')[0];
+        if (reservedDates.includes(dateString)) {
+            return true;
         }
+        return false;
+    }
 
-        function updatePrice(){
-            let dur = monthDiff(new Date(startInput.value), new Date(endInput.value));
-            if (isNaN(dur)||dur<minMonths) dur=minMonths;
-            const dep = depositSelect ? parseInt(depositSelect.value,10) : 0;
-            const km  = parseInt(kmSelect.value,10);
-            let newPrice = basePrice
-                + (km - MIN_KM)*0.02
-                - (dur - minMonths)*2
-                - dep*0.005;
-            if (!isFinite(newPrice)||newPrice<0) newPrice=basePrice;
-            priceDisplay.innerHTML = newPrice.toFixed(2).replace('.',',')
-                + ' €<span class="text-base font-normal">/mois</span>';
-        }
-
-        [depositSelect, kmSelect, startInput, endInput].forEach(el => {
-            if (el) el.addEventListener('change', updatePrice);
-        });
-
-        const reservedRanges = <?= json_encode($reservedRanges) ?>;
-        const reservedDates = <?= json_encode($reservedDates) ?>;
-
-        function markReservedDays(date) {
-            const dateString = date.toISOString().split('T')[0];
-            if (reservedDates.includes(dateString)) {
-                return true;
+    // Configuration du calendrier avec personnalisation des jours réservés
+    flatpickr("#start_date", {
+        minDate: "today",
+        dateFormat: "Y-m-d",
+        disable: reservedRanges,
+        onDayCreate: function(dObj, dStr, fp, dayElem) {
+            const dateStr = dayElem.dateObj.toISOString().split('T')[0];
+            if (reservedDates.includes(dateStr)) {
+                dayElem.classList.add("reserved");
             }
-            return false;
-        }
-
-        flatpickr("#start_date", {
-            minDate: "today",
-            dateFormat: "Y-m-d",
-            disable: reservedRanges,
-            onReady: function(_, __, inst) {
-                // au chargement, on colle l'année après le libellé du mois
-                const header = inst.calendarContainer.querySelector(".flatpickr-current-month");
-                header.innerHTML = `${inst.l10n.months.longhand[inst.currentMonth]} ${inst.currentYear}`;
-            },
-            onMonthChange: function(_, __, inst) {
-                // à chaque changement de mois, on met à jour l'année affichée
-                const header = inst.calendarContainer.querySelector(".flatpickr-current-month");
-                header.innerHTML = `${inst.l10n.months.longhand[inst.currentMonth]} ${inst.currentYear}`;
-            },
-            onDayCreate: function(dObj, dStr, fp, dayElem) { /* … */ }
-        });
-
-
-
-        flatpickr("#end_date", {
-            minDate: "today",
-            dateFormat: "Y-m-d",
-            disable: reservedRanges,
-            onReady: function(_, __, inst) {
-                // au chargement, on colle l'année après le libellé du mois
-                const header = inst.calendarContainer.querySelector(".flatpickr-current-month");
-                header.innerHTML = `${inst.l10n.months.longhand[inst.currentMonth]} ${inst.currentYear}`;
-            },
-            onMonthChange: function(_, __, inst) {
-                // à chaque changement de mois, on met à jour l'année affichée
-                const header = inst.calendarContainer.querySelector(".flatpickr-current-month");
-                header.innerHTML = `${inst.l10n.months.longhand[inst.currentMonth]} ${inst.currentYear}`;
-            },
-            onDayCreate: function(dObj, dStr, fp, dayElem) { /* … */ }
-        });
-
-        document.querySelectorAll('.thumbnail').forEach(el=>
-            el.addEventListener('click', ()=> document.getElementById('mainImage').src=el.src)
-        );
-
-        updatePrice();
-
-        // === Gestion du bouton "Ajouter au panier" si non connecté ===
-        const isLogged = <?= json_encode($isLogged) ?>;
-        const addToCartForm = document.getElementById('addToCartForm');
-        const addToCartBtn = document.getElementById('addToCartBtn');
-        if (addToCartBtn && !isLogged) {
-            addToCartBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                window.location.href = "auth/login.php";
-            });
+        },
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length && endInput.value) {
+                if (new Date(dateStr) > new Date(endInput.value)) {
+                    endInput.value = '';
+                }
+            }
+            // Mise à jour du calendrier de fin
+            const endpickr = document.querySelector("#end_date")._flatpickr;
+            endpickr.set('minDate', dateStr);
         }
     });
+
+    flatpickr("#end_date", {
+        minDate: "today",
+        dateFormat: "Y-m-d",
+        disable: reservedRanges,
+        onDayCreate: function(dObj, dStr, fp, dayElem) {
+            const dateStr = dayElem.dateObj.toISOString().split('T')[0];
+            if (reservedDates.includes(dateStr)) {
+                dayElem.classList.add("reserved");
+            }
+        }
+    });
+
+    // Mini galerie
+    document.querySelectorAll('.thumbnail').forEach(el=>
+        el.addEventListener('click', ()=> document.getElementById('mainImage').src=el.src)
+    );
+
+    // Init affichages
+    updatePrice();
+});
 </script>
 </body>
 </html>
